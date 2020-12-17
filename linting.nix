@@ -4,9 +4,12 @@
 }:
 let
   inherit (pkgs) linkFarmFromDrvs runCommandLocal;
-  formatter = name: ext: command:
+
+  # Results in a derivation that logs diffs w.r.t. some formatter.
+  # Builds succesfully only if there are no diffs.
+  checkFormatting = name: ext: command:
     runCommandLocal "${name}" { } ''
-      echo "--- Running ${name}"
+      echo "--- Running ${name} on ${ext} files"
 
       foundDiff=0
       diffs=()
@@ -43,9 +46,33 @@ let
       ) | tee -a "$out"
     '';
 
+  # Results in a shell script (string) that calls the given formatter
+  runFormatter = name: ext: command: ''
+    echo "Running ${name} on *${ext} files:"
+
+    while IFS= read -r filename; do
+
+      echo -n "  $filename... "
+      formatted="$TEMP/formatter-${name}-res"
+
+      (${command}) > $formatted
+
+      if ! diff --unified "$filename" "$formatted" > "$formatted.diff" ; then
+
+        echo "diff:"
+        sed -e 's/^/      /' "$formatted.diff"
+        echo
+        cat $formatted > $filename
+      else
+        echo "no change"
+      fi
+
+    done < <(git ls-files '*${ext}')
+  '';
+
   linter = name: ext: command:
     runCommandLocal "${name}" { } ''
-      echo "--- Running ${name}"
+      echo "--- Running ${name} on ${ext} files"
 
       foundErr=0
       errs=()
@@ -68,7 +95,8 @@ let
       ) | tee -a "$out"
     '';
 
-  all-drvs = checkers formatter linter;
+  all-drvs = checkers checkFormatting linter;
   linkfarm = linkFarmFromDrvs "all-lints" all-drvs;
+  format-all = pkgs.writeShellScriptBin "format-all" (pkgs.lib.concatStringsSep "\n" (checkers runFormatter (_: "")));
 in
-builtins.listToAttrs (map (drv: { name = drv.name; value = drv; }) (all-drvs ++ [ linkfarm ]))
+builtins.listToAttrs (map (drv: { name = drv.name; value = drv; }) (all-drvs ++ [ format-all linkfarm ]))
