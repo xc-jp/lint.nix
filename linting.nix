@@ -1,12 +1,11 @@
 { checkers
 , src
-, prefix
 , pkgs
 }:
 let
   inherit (pkgs) linkFarmFromDrvs runCommandLocal;
   formatter = name: ext: command:
-    runCommandLocal "${prefix}-${name}" { } ''
+    runCommandLocal "${name}" { } ''
       echo "--- Running ${name}"
 
       foundDiff=0
@@ -45,7 +44,7 @@ let
     '';
 
   linter = name: ext: command:
-    runCommandLocal "${prefix}-${name}" { } ''
+    runCommandLocal "${name}" { } ''
       echo "--- Running ${name}"
 
       foundErr=0
@@ -70,6 +69,6 @@ let
     '';
 
   all-drvs = checkers formatter linter;
-  linkfarm = linkFarmFromDrvs "${prefix}-all-linters" all-drvs;
+  linkfarm = linkFarmFromDrvs "all-lints" all-drvs;
 in
 builtins.listToAttrs (map (drv: { name = drv.name; value = drv; }) (all-drvs ++ [ linkfarm ]))
