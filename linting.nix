@@ -31,7 +31,7 @@ let
           echo
         fi
 
-      done < <(find "${src}" -name '*${ext}' -print0)
+      done < <(find "${src}" -type f -name '*${ext}' -print0)
 
       if [[ $foundDiff -eq 0 ]]; then
         echo "Success, ${name} found no differences."
@@ -56,7 +56,7 @@ let
           foundErr=1
           errs+=(''${filename#${src}/})
         fi
-      done < <(find "${src}" -name '*${ext}' -print0)
+      done < <(find "${src}" -type f -name '*${ext}' -print0)
 
       if [[ $foundErr -eq 0 ]]; then
         echo "Success, ${name} exited with code 0."
