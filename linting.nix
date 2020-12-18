@@ -62,7 +62,12 @@ let
         echo "diff:"
         sed -e 's/^/      /' "$formatted.diff"
         echo
-        cat $formatted > $filename
+        if [[ -s "$formatted" ]]
+        then
+          cat $formatted > $filename
+        else
+          echo "Formatted file $(basename $filename) is empty"
+        fi
       else
         echo "no change"
       fi
