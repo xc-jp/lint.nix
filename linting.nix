@@ -3,12 +3,17 @@
 , pkgs
 }:
 let
-  inherit (pkgs) linkFarmFromDrvs runCommandLocal;
+  inherit (pkgs) linkFarmFromDrvs runCommandLocal glibcLocales;
 
   # Results in a derivation that logs diffs w.r.t. some formatter.
   # Builds succesfully only if there are no diffs.
   checkFormatting = name: ext: command:
-    runCommandLocal "${name}" { } ''
+    runCommandLocal "${name}"
+      {
+        LANG = "en_US.UTF-8";
+        LC_ALL = "en_US.UTF-8";
+        LOCALE_ARCHIVE = "${glibcLocales}/lib/locale/locale-archive";
+      } ''
       echo "--- Running ${name} on ${ext} files"
 
       foundDiff=0
