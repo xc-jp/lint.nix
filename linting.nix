@@ -8,7 +8,7 @@ let
   # Results in a derivation that logs diffs w.r.t. some formatter.
   # Builds succesfully only if there are no diffs.
   checkFormatting = name: ext: command:
-    runCommandLocal "${name}"
+    runCommandLocal "${name}-formatting-check"
       {
         LANG = "en_US.UTF-8";
         LC_ALL = "en_US.UTF-8";
@@ -29,9 +29,10 @@ let
         if ! diff --unified "$filename" "$formatted" > "$formatted.diff" ; then
 
           foundDiff=1
-          diffs+=(''${filename#${src}/})
+          filenameClean=''${filename#${src}/}
+          diffs+=($filenameClean)
 
-          echo "${name} diff in $filename:"
+          echo "${name} diff in $filenameClean:"
 
           # Make sure to indent the diff output so it doesn't trigger a
           # buildkite collapsable section.
@@ -81,7 +82,7 @@ let
   '';
 
   linter = name: ext: command:
-    runCommandLocal "${name}" { } ''
+    runCommandLocal "${name}-lints" { } ''
       echo "--- Running ${name} on ${ext} files"
 
       foundErr=0
@@ -89,9 +90,11 @@ let
 
       (
       while IFS= read -r -d "" filename; do
-        if ! (${command}) ; then
+        filenameClean=''${filename#${src}/}
+        echo "Linting $filenameClean..."
+        if !(${command}); then
           foundErr=1
-          errs+=(''${filename#${src}/})
+          errs+=($filenameClean)
         fi
       done < <(find "${src}" -type f -name '*${ext}' -print0)
 
@@ -107,6 +110,6 @@ let
 
   all-drvs = checkers checkFormatting linter;
   linkfarm = linkFarmFromDrvs "all-lints" all-drvs;
-  format-all = pkgs.writeShellScriptBin "format-all" (pkgs.lib.concatStringsSep "\n" (checkers runFormatter (_: "")));
+  format-all = pkgs.writeShellScriptBin "format-all" (pkgs.lib.concatStringsSep "\n" (checkers runFormatter (_: _: _: "")));
 in
 builtins.listToAttrs (map (drv: { name = drv.name; value = drv; }) (all-drvs ++ [ format-all linkfarm ]))
