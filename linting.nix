@@ -18,7 +18,7 @@ let
         };
     in
     runCommandLocal "${name}-formatting-check" attrs ''
-      echo "--- Running ${name} on ${ext} files"
+      echo "Running ${name} on ${ext} files"
 
       foundDiff=0
       diffs=()
@@ -87,7 +87,7 @@ let
 
   linter = name: ext: command:
     runCommandLocal "${name}-lints" { } ''
-      echo "--- Running ${name} on ${ext} files"
+      echo "Running ${name} on ${ext} files"
 
       foundErr=0
       errs=()
@@ -95,7 +95,7 @@ let
       (
       while IFS= read -r -d "" filename; do
         filenameClean=''${filename#${src}/}
-        echo "Linting $filenameClean..."
+        echo -n "Linting $filenameClean..."
         if !(${command}); then
           foundErr=1
           errs+=($filenameClean)
