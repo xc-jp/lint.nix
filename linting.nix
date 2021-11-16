@@ -113,7 +113,10 @@ let
     '';
 
   all-drvs = checkers checkFormatting linter;
-  linkfarm = linkFarmFromDrvs "all-lints" all-drvs;
+  all-lints = linkFarmFromDrvs "all-lints" all-drvs;
   format-all = pkgs.writeShellScriptBin "format-all" (pkgs.lib.concatStringsSep "\n" (checkers runFormatter (_: _: _: "")));
+  named = builtins.listToAttrs (map (drv: { name = drv.name; value = drv; }) all-drvs);
 in
-builtins.listToAttrs (map (drv: { name = drv.name; value = drv; }) (all-drvs ++ [ format-all linkfarm ]))
+{
+  inherit all-lints format-all;
+} // named
