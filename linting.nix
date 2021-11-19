@@ -22,6 +22,7 @@ let
 
       foundDiff=0
       diffs=()
+      TEMP=$(mktemp -d)
 
       (
       while IFS= read -r -d "" filename; do
@@ -59,6 +60,8 @@ let
   # Results in a shell script (string) that calls the given formatter
   runFormatter = name: ext: command: ''
     echo "Running ${name} on *${ext} files:"
+
+    TEMP=$(mktemp -d)
 
     while IFS= read -r filename; do
 
