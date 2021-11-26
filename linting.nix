@@ -1,24 +1,23 @@
-{ checkers
+{ checks
 , src
 , pkgs
 }:
 let
   inherit (pkgs) lib stdenv linkFarmFromDrvs runCommandLocal glibcLocales;
 
+  findPattern = lib.concatMapStringsSep " " (ext: "-type f -name '*${ext}'");
+  lsFiles = lib.concatMapStringsSep " " (ext: "'*${ext}'");
+  commaSep = lib.concatStringsSep ", ";
+
   # Results in a derivation that logs diffs w.r.t. some formatter.
   # Builds succesfully only if there are no diffs.
-  checkFormatting = name: ext: command:
+  checkFormatting = name: exts: command:
     let
-      attrs =
-        {
-          LANG = "en_US.UTF-8";
-          LC_ALL = "en_US.UTF-8";
-        } // lib.optionalAttrs stdenv.isLinux {
-          LOCALE_ARCHIVE = "${glibcLocales}/lib/locale/locale-archive";
-        };
+      localeAttrs.LC_ALL = "en_US.UTF-8";
+      localeAttrs.buildInputs = [ pkgs.glibcLocales ];
     in
-    runCommandLocal "${name}-formatting-check" attrs ''
-      echo "Running ${name} on ${ext} files"
+    runCommandLocal "${name}-formatting-check" localeAttrs ''
+      echo "Running ${name} on ${commaSep exts} files"
 
       foundDiff=0
       diffs=()
@@ -45,7 +44,7 @@ let
           echo
         fi
 
-      done < <(find "${src}" -type f -name '*${ext}' -print0)
+      done < <(find "${src}" ${findPattern exts} -print0)
 
       if [[ $foundDiff -eq 0 ]]; then
         echo "Success, ${name} found no differences."
@@ -58,8 +57,8 @@ let
     '';
 
   # Results in a shell script (string) that calls the given formatter
-  runFormatter = name: ext: command: ''
-    echo "Running ${name} on *${ext} files:"
+  runFormatter = name: exts: command: ''
+    echo "Running ${name} on ${commaSep exts} files:"
 
     TEMP=$(mktemp -d)
 
@@ -85,12 +84,12 @@ let
         echo "no change"
       fi
 
-    done < <(git ls-files '*${ext}')
+    done < <(git ls-files ${lsFiles exts})
   '';
 
-  linter = name: ext: command:
+  checkLinting = name: exts: command:
     runCommandLocal "${name}-lints" { } ''
-      echo "Running ${name} on ${ext} files"
+      echo "Running ${name} on ${commaSep exts} files"
 
       foundErr=0
       errs=()
@@ -103,7 +102,7 @@ let
           foundErr=1
           errs+=($filenameClean)
         fi
-      done < <(find "${src}" -type f -name '*${ext}' -print0)
+      done < <(find "${src}" ${findPattern exts} -print0)
 
       if [[ $foundErr -eq 0 ]]; then
         echo "Success, ${name} exited with code 0."
@@ -115,11 +114,11 @@ let
       ) | tee -a "$out"
     '';
 
-  all-drvs = checkers checkFormatting linter;
-  all-lints = linkFarmFromDrvs "all-lints" all-drvs;
-  format-all = pkgs.writeShellScriptBin "format-all" (pkgs.lib.concatStringsSep "\n" (checkers runFormatter (_: _: _: "")));
-  named = builtins.listToAttrs (map (drv: { name = drv.name; value = drv; }) all-drvs);
+  all-drvs = checks { formatter = checkFormatting; linter = checkLinting; };
+  named-checks = builtins.listToAttrs (map (drv: { name = drv.name; value = drv; }) all-drvs);
+
 in
 {
-  inherit all-lints format-all;
-} // named
+  all-lints = linkFarmFromDrvs "all-lints" all-drvs;
+  format-all = pkgs.writeShellScriptBin "format-all" (pkgs.lib.concatStringsSep "\n" (checks { formatter = runFormatter; linter = (_: _: _: ""); }));
+} // named-checks
