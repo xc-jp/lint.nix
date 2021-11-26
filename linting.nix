@@ -6,8 +6,9 @@ let
   inherit (pkgs) lib stdenv linkFarmFromDrvs runCommandLocal glibcLocales;
 
   findPattern = lib.concatMapStringsSep " " (ext: "-type f -name '*${ext}'");
-  lsFiles = lib.concatMapStringsSep " " (ext: "'*${ext}'");
+  gitPattern = lib.concatMapStringsSep " " (ext: "'*${ext}'");
   commaSep = lib.concatStringsSep ", ";
+  ensureList = x: if builtins.isList x then x else [ x ];
 
   # Results in a derivation that logs diffs w.r.t. some formatter.
   # Builds succesfully only if there are no diffs.
@@ -57,35 +58,36 @@ let
     '';
 
   # Results in a shell script (string) that calls the given formatter
-  runFormatter = name: exts: command: ''
-    echo "Running ${name} on ${commaSep exts} files:"
+  runFormatter = name: exts: command:
+    ''
+      echo "Running ${name} on ${commaSep exts} files:"
 
-    TEMP=$(mktemp -d)
+      TEMP=$(mktemp -d)
 
-    while IFS= read -r filename; do
+      while IFS= read -r filename; do
 
-      echo -n "  $filename... "
-      formatted="$TEMP/formatter-${name}-res"
+        echo -n "  $filename... "
+        formatted="$TEMP/formatter-${name}-res"
 
-      (${command}) > $formatted
+        (${command}) > $formatted
 
-      if ! diff --unified "$filename" "$formatted" > "$formatted.diff" ; then
+        if ! diff --unified "$filename" "$formatted" > "$formatted.diff" ; then
 
-        echo "diff:"
-        sed -e 's/^/      /' "$formatted.diff"
-        echo
-        if [[ -s "$formatted" ]]
-        then
-          cat $formatted > $filename
+          echo "diff:"
+          sed -e 's/^/      /' "$formatted.diff"
+          echo
+          if [[ -s "$formatted" ]]
+          then
+            cat $formatted > $filename
+          else
+            echo "Formatted file $(basename $filename) is empty"
+          fi
         else
-          echo "Formatted file $(basename $filename) is empty"
+          echo "no change"
         fi
-      else
-        echo "no change"
-      fi
 
-    done < <(git ls-files ${lsFiles exts})
-  '';
+      done < <(git ls-files ${gitPattern exts})
+    '';
 
   checkLinting = name: exts: command:
     runCommandLocal "${name}-lints" { } ''
@@ -114,11 +116,18 @@ let
       ) | tee -a "$out"
     '';
 
-  all-drvs = checks { formatter = checkFormatting; linter = checkLinting; };
-  named-checks = builtins.listToAttrs (map (drv: { name = drv.name; value = drv; }) all-drvs);
+  named-checks = builtins.mapAttrs (name: drv: drv name) (checks {
+    formatter = exts: cmd: name: checkFormatting name (ensureList exts) cmd;
+    linter = exts: cmd: name: checkLinting name (ensureList exts) cmd;
+  });
+
+  named-runners = builtins.mapAttrs (name: drv: drv name) (checks {
+    formatter = exts: cmd: name: runFormatter name (ensureList exts) cmd;
+    linter = _: _: _: "";
+  });
 
 in
 {
-  all-lints = linkFarmFromDrvs "all-lints" all-drvs;
-  format-all = pkgs.writeShellScriptBin "format-all" (pkgs.lib.concatStringsSep "\n" (checks { formatter = runFormatter; linter = (_: _: _: ""); }));
+  all-lints = linkFarmFromDrvs "all-lints" (builtins.attrValues named-checks);
+  format-all = pkgs.writeShellScriptBin "format-all" (pkgs.lib.concatStringsSep "\n" (builtins.attrValues named-runners));
 } // named-checks
