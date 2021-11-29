@@ -5,7 +5,7 @@
 let
   inherit (pkgs) lib stdenv linkFarmFromDrvs runCommandLocal glibcLocales;
 
-  findPattern = lib.concatMapStringsSep " " (ext: "-type f -name '*${ext}'");
+  findPattern = lib.concatMapStringsSep " -or " (ext: "-type f -name '*${ext}'");
   gitPattern = lib.concatMapStringsSep " " (ext: "'*${ext}'");
   commaSep = lib.concatStringsSep ", ";
   ensureList = x: if builtins.isList x then x else [ x ];
