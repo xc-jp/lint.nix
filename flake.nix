@@ -1,4 +1,4 @@
 {
-  description = "simple Nix linting tools";
-  outputs = _: { lib.mkLints = import ./.; };
+  description = "simple linting";
+  outputs = _: { lib.lint-nix = import ./lint.nix; };
 }
