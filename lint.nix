@@ -1,23 +1,40 @@
-{ checks
+{ linters ? { }
+, formatters ? { }
 , src
 , pkgs
 }:
 let
-  inherit (pkgs) lib stdenv linkFarmFromDrvs runCommandLocal glibcLocales;
+  inherit (pkgs) lib;
+
+  apply =
+    let ensureList = x: if builtins.isList x then x else [ x ];
+    in f: builtins.mapAttrs (name: { ext, cmd }: f name (ensureList ext) cmd);
+
+  # I would love to use a rec here but "formatters" would shadow
+  result =
+    let
+      formats = apply checkFormatting formatters;
+      lints = apply checkLinting linters;
+      all-formats = pkgs.linkFarmFromDrvs "all-formatters" (builtins.attrValues formats);
+      all-lints = pkgs.linkFarmFromDrvs "all-lints" (builtins.attrValues lints);
+      formatter-runners = apply runFormatter formatters;
+    in
+    {
+      inherit lints formats all-lints all-formats;
+      all-checks = pkgs.linkFarmFromDrvs "all-checks" [ all-formats all-lints ];
+      format-all = pkgs.writeShellScriptBin "format-all" (lib.concatStringsSep "\n" (lib.mapAttrsToList (name: drv: "${drv}/bin/run-${name}") formatter-runners));
+      formatters = formatter-runners;
+    };
 
   findPattern = lib.concatMapStringsSep " -or " (ext: "-type f -name '*${ext}'");
   gitPattern = lib.concatMapStringsSep " " (ext: "'*${ext}'");
   commaSep = lib.concatStringsSep ", ";
-  ensureList = x: if builtins.isList x then x else [ x ];
 
+  # checkFormatting : Runner
   # Results in a derivation that logs diffs w.r.t. some formatter.
   # Builds succesfully only if there are no diffs.
   checkFormatting = name: exts: command:
-    let
-      localeAttrs.LC_ALL = "en_US.UTF-8";
-      localeAttrs.buildInputs = [ pkgs.glibcLocales ];
-    in
-    runCommandLocal "${name}-formatting-check" localeAttrs ''
+    pkgs.runCommandLocal "${name}-formatting-check" { } ''
       echo "Running ${name} on ${commaSep exts} files"
 
       foundDiff=0
@@ -57,9 +74,9 @@ let
       ) | tee -a "$out"
     '';
 
-  # Results in a shell script (string) that calls the given formatter
+  # shell script that runs the given formatter in place
   runFormatter = name: exts: command:
-    ''
+    pkgs.writeShellScriptBin "run-${name}" ''
       echo "Running ${name} on ${commaSep exts} files:"
 
       TEMP=$(mktemp -d)
@@ -90,7 +107,7 @@ let
     '';
 
   checkLinting = name: exts: command:
-    runCommandLocal "${name}-lints" { } ''
+    pkgs.runCommandLocal "${name}-lints" { } ''
       echo "Running ${name} on ${commaSep exts} files"
 
       foundErr=0
@@ -116,18 +133,5 @@ let
       ) | tee -a "$out"
     '';
 
-  named-checks = builtins.mapAttrs (name: drv: drv name) (checks {
-    formatter = exts: cmd: name: checkFormatting name (ensureList exts) cmd;
-    linter = exts: cmd: name: checkLinting name (ensureList exts) cmd;
-  });
-
-  named-runners = builtins.mapAttrs (name: drv: drv name) (checks {
-    formatter = exts: cmd: name: runFormatter name (ensureList exts) cmd;
-    linter = _: _: _: "";
-  });
-
 in
-{
-  all-lints = linkFarmFromDrvs "all-lints" (builtins.attrValues named-checks);
-  format-all = pkgs.writeShellScriptBin "format-all" (pkgs.lib.concatStringsSep "\n" (builtins.attrValues named-runners));
-} // named-checks
+result

@@ -14,31 +14,34 @@ let
     owner = "xc-jp" ;
     repo = "lint.nix" ;
   } ;
-in 
+in
 {
   lints = import lint-nix {
     inherit pkgs;
     src = ./..;
-    checks = { formatter, linter, ... }: {
-      ormolu = formatter ".hs" ''
-        ${pkgs.ormolu}/bin/ormolu $filename
-      '';
-
-      nixpkgs-fmt = formatter ".nix" ''
-        cat $filename | ${pkgs.nixpkgs-fmt}/bin/nixpkgs-fmt
-      '';
-
-      cabal-fmt = formatter ".cabal" ''
-        ${pkgs.haskellPackages.cabal-fmt}/bin/cabal-fmt $filename
-      '';
-
-      hlint = linter ".hs" ''
-        ${pkgs.hlint}/bin/hlint $filename --hint=${../hlint.ci.yaml}
-      '';
-
-      clang-format = formatter [ ".c" ".cpp" ".h" ".hpp" ".proto" ".cu" ".cuh" ] ''
-        ${pkgs.clang-tools}/bin/clang-format $filename
-      '';
+    linters = {
+      hlint = {
+        ext = ".hs";
+        cmd = "${pkgs.hlint}/bin/hlint $filename --hint=${../hlint.ci.yaml}";
+      };
+    };
+    formatters = {
+      ormolu = {
+        ext = ".hs";
+        cmd = "${pkgs.ormolu}/bin/ormolu $filename";
+      };
+      nixpkgs-fmt = {
+        ext = ".nix";
+        cmd = "cat $filename | ${pkgs.nixpkgs-fmt}/bin/nixpkgs-fmt";
+      };
+      cabal-fmt = {
+        ext = ".cabal";
+        cmd = "${pkgs.haskellPackages.cabal-fmt}/bin/cabal-fmt $filename";
+      };
+      clang-format = {
+        ext = [ ".c" ".cpp" ".h" ".hpp" ".proto" ".cu" ".cuh" ];
+        cmd = "${pkgs.clang-tools}/bin/clang-format $filename";
+      };
     };
   };
 }
