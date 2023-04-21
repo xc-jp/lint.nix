@@ -9,23 +9,22 @@ let
 
   apply =
     let ensureList = x: if builtins.isList x then x else [ x ];
-    in f: attrs: builtins.mapAttrs (name: { ext, cmd }: f name (ensureList ext) cmd);
+    in f: builtins.mapAttrs (name: { ext, cmd }: f name (ensureList ext) cmd);
 
-  result = rec {
-    formats = apply checkFormatting formatters;
-    lints = apply checkLinting linters;
-    formatters = apply runFormatter formatters;
-    all-formats = pkgs.linkFarmFromDrvs "all-formatters" (builtins.attrValues formats);
-    all-lints = pkgs.linkFarmFromDrvs "all-lints" (builtins.attrValues linters);
-    all-checks = pkgs.linkFarmFromDrvs "all-checks" (builtins.attrValues (formats // lints));
-    format-all = pkgs.writeShellScriptBin "format-all" (concatStringsSep "\n" (builtins.attrValues formatters));
-  };
-
-  # I can't find the original reasoning behind setting these. It might no longer be necessary.
-  localeAttrs = {
-    LC_ALL = "en_US.UTF-8";
-    buildInputs = [ pkgs.glibcLocales ];
-  };
+  # I would love to use a rec here but "formatters" would shadow
+  result =
+    let
+      formats = apply checkFormatting formatters;
+      lints = apply checkLinting linters;
+      all-formats = pkgs.linkFarmFromDrvs "all-formatters" (builtins.attrValues formats);
+      all-lints = pkgs.linkFarmFromDrvs "all-lints" (builtins.attrValues lints);
+    in
+    {
+      inherit formats all-formats all-lints;
+      all-checks = pkgs.linkFarmFromDrvs "all-checks" [ all-formats all-lints ];
+      format-all = pkgs.writeShellScriptBin "format-all" (concatStringsSep "\n" (builtins.attrValues formatters));
+      formatters = apply runFormatter formatters;
+    };
 
   findPattern = concatMapStringsSep " -or " (ext: "-type f -name '*${ext}'");
   gitPattern = concatMapStringsSep " " (ext: "'*${ext}'");
@@ -35,7 +34,7 @@ let
   # Results in a derivation that logs diffs w.r.t. some formatter.
   # Builds succesfully only if there are no diffs.
   checkFormatting = name: exts: command:
-    runCommandLocal "${name}-formatting-check" localeAttrs ''
+    runCommandLocal "${name}-formatting-check" { } ''
       echo "Running ${name} on ${commaSep exts} files"
 
       foundDiff=0
@@ -77,7 +76,7 @@ let
 
   # shell script that runs the given formatter in place
   runFormatter = name: exts: command:
-    runCommandLocal "run-${name}" localeAttrs ''
+    runCommandLocal "run-${name}" { } ''
       echo "Running ${name} on ${commaSep exts} files:"
 
       TEMP=$(mktemp -d)
@@ -108,7 +107,7 @@ let
     '';
 
   checkLinting = name: exts: command:
-    runCommandLocal "${name}-lints" localeAttrs ''
+    runCommandLocal "${name}-lints" { } ''
       echo "Running ${name} on ${commaSep exts} files"
 
       foundErr=0
