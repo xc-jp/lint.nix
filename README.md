@@ -4,13 +4,14 @@ Simple linting and formatting framework using Nix.
 
 `lint.nix` provides
   - derivations that only build successfully if your code conforms to linters and formatters
-  - a script that automatically applies all formatters
-
-The design goal is not to support 100% of possible linting setups, but to provide a very simple way of supporting 90% of setups.
+  - scripts automatically run formatters locally
 
 ## Example
 
-In this simple example, we configure `lint.nix` to lint all Python files with `ruff`, format Python files with `black`, and format Nix files with `nixpkgs-fmt`:
+In this simple example, we configure `lint.nix` to
+- lint Python files with `ruff`,
+- format Python files with `black`
+- format C-like files with `clang-format`
 
 ```nix
 {
@@ -24,17 +25,17 @@ In this simple example, we configure `lint.nix` to lint all Python files with `r
       lints = inputs.lint-nix.lib.lint-nix {
         inherit pkgs;
         src = ./.;
+        linters = {
+          ruff.ext = ".py";
+          ruff.cmd = "${pkgs.ruff}/bin/ruff $filename";
+        };
         formatters = {
           black.ext = ".py";
           black.cmd = "${pkgs.black}/bin/black $filename";
 
-          nixpkgs-fmt.ext = ".nix";
-          nixpkgs-fmt.cmd = "${pkgs.nixpkgs-fmt}/bin/nixpkgs-fmt";
-          nixpkgs-fmt.stdin = true;
-        };
-        linters = {
-          ruff.ext = ".py";
-          ruff.cmd = "${pkgs.ruff}/bin/ruff $filename";
+          clang-format.ext = [ ".c" ".cpp" ".h" ".hpp" ".proto" ".cu" ".cuh" ];
+          clang-format.cmd = "${pkgs.clang-tools}/bin/clang-format";
+          clang-format.stdin = true;
         };
       };
     in {
@@ -43,9 +44,11 @@ In this simple example, we configure `lint.nix` to lint all Python files with `r
 }
 ```
 
-With this setup
-  - running `nix build .#lints.all-checks` will only build successfully if our linters report no errors, and our formatters produce no changes.
-  - running `nix run .#lints.format-all` will format our entire repo using the configured formatters.
+With this setup,
+  - running `nix build .#lints.all-checks` will only build successfully if no linter reports any errors, and no formatter produces any changes.
+  - running `nix run .#lints.format-all` will format all files in the current directory using the configured formatters.
+
+There are also more granular versions of the above commands, as described in the usage section below.
 
 ## Usage
 
@@ -57,7 +60,7 @@ The configuration attribute set should contain the following fields:
 - **`src`**: A nix path pointing to (usually) the root of the repository. Only files in this directory are considered.
 - **`formatters`**: An attribute set configuring individual formatters, each should define two fields explained below. Defaults to `{ }`.
   - **`ext`**: An extension, or list of extensions, that this formatter should be run on. Extensions should contain a leading period.
-  - **`cmd`**: Formatting shell script. The way this is expected to work depends on the below `stdin` setting.
+  - **`cmd`**: Formatting shell script. The way this is expected to work depends on the below `stdin` setting. Scripts are
   - **`stdin`**: Controls whether the formatting script runs in-place or reads from `stdin`. Defaults to `false`.
     - If `true`, the shell script is expected to read its input from `stdin`, and output the formatted file to `stdout`.
     - If `false`, the shell script is expected to format the file pointed to by `$filename` in-place.
