@@ -6,9 +6,11 @@ Simple linting and formatting framework using Nix.
   - derivations that only build successfully if your code conforms to linters and formatters
   - a script that automatically applies all formatters
 
+The design goal is not to support 100% of possible linting setups, but to provide a very simple way of supporting 90% of setups.
+
 ## Example
 
-In this simple example, we configure `lint.nix` to check our Haskell files with `hlint`, and format our Nix files with `nixpkgs-fmt`:
+In this simple example, we configure `lint.nix` to lint all Python files with `ruff`, format Python files with `black`, and format Nix files with `nixpkgs-fmt`:
 
 ```nix
 {
@@ -23,12 +25,16 @@ In this simple example, we configure `lint.nix` to check our Haskell files with 
         inherit pkgs;
         src = ./.;
         formatters = {
+          black.ext = ".py";
+          black.cmd = "${pkgs.black}/bin/black $filename";
+
           nixpkgs-fmt.ext = ".nix";
-          nixpkgs-fmt.cmd = "cat $filename | ${pkgs.nixpkgs-fmt}/bin/nixpkgs-fmt";
+          nixpkgs-fmt.cmd = "${pkgs.nixpkgs-fmt}/bin/nixpkgs-fmt";
+          nixpkgs-fmt.stdin = true;
         };
         linters = {
-          hlint.ext = ".hs";
-          hlint.cmd = "${pkgs.hlint}/bin/hlint $filename --hint=${./hlint.yaml}";
+          ruff.ext = ".py";
+          ruff.cmd = "${pkgs.ruff}/bin/ruff $filename";
         };
       };
     in {
@@ -49,12 +55,15 @@ The configuration attribute set should contain the following fields:
 
 - **`pkgs`**: A nixpkgs set
 - **`src`**: A nix path pointing to (usually) the root of the repository. Only files in this directory are considered.
-- **`linters`**: An attribute set configuring individual linters, each should define two fields explained below. Defaults to `{ }`.
-  - **`ext`**: An extension, or list of extensions, that this linter should be run on. Extensions should contain a leading period.
-  - **`cmd`**: A shell script that should fail if there is an issue in `$filename`.
 - **`formatters`**: An attribute set configuring individual formatters, each should define two fields explained below. Defaults to `{ }`.
   - **`ext`**: An extension, or list of extensions, that this formatter should be run on. Extensions should contain a leading period.
-  - **`cmd`**: A shell script that should output a formatted version of `$filename` to `stdout`.
+  - **`cmd`**: Formatting shell script. The way this is expected to work depends on the below `stdin` setting.
+  - **`stdin`**: Controls whether the formatting script runs in-place or reads from `stdin`. Defaults to `false`.
+    - If `true`, the shell script is expected to read its input from `stdin`, and output the formatted file to `stdout`.
+    - If `false`, the shell script is expected to format the file pointed to by `$filename` in-place.
+- **`linters`**: An attribute set configuring individual linters, each should define two fields explained below. Defaults to `{ }`.
+  - **`ext`**: An extension, or list of extensions, that this linter should be run on. Extensions should contain a leading period.
+  - **`cmd`**: A shell script that should fail if there is an issue in `$filename`. Unlike formatters, linters do not (currently) have a `stdin` option. If your linter expects its input from `stdin`, you have to pass it manually using `cat $filename | <linter>`.
 
 The result of calling `lint-nix` is an attribute set containing the following fields:
 

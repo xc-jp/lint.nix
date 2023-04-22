@@ -6,18 +6,21 @@
 let
   inherit (pkgs) lib;
 
-  apply =
-    let ensureList = x: if builtins.isList x then x else [ x ];
-    in f: builtins.mapAttrs (name: { ext, cmd }: f name (ensureList ext) cmd);
+  ensureList = x: if builtins.isList x then x else [ x ];
+
+  # Parse the configuration attrset and apply the arguments to f.
+  # f will be one of checkLinting, checkFormatting, runFormatter.
+  applyLint = f: builtins.mapAttrs (name: { ext, cmd }: f name (ensureList ext) cmd);
+  applyFormat = f: builtins.mapAttrs (name: { ext, cmd, stdin ? false }: f name (ensureList ext) cmd stdin);
 
   # I would love to use a rec here but "formatters" would shadow
   result =
     let
-      formats = apply checkFormatting formatters;
-      lints = apply checkLinting linters;
+      formats = applyFormat checkFormatting formatters;
+      lints = applyLint checkLinting linters;
       all-formats = pkgs.linkFarmFromDrvs "all-formatters" (builtins.attrValues formats);
       all-lints = pkgs.linkFarmFromDrvs "all-lints" (builtins.attrValues lints);
-      formatter-runners = apply runFormatter formatters;
+      formatter-runners = applyFormat runFormatter formatters;
     in
     {
       inherit lints formats all-lints all-formats;
@@ -30,10 +33,18 @@ let
   gitPattern = lib.concatMapStringsSep " " (ext: "'*${ext}'");
   commaSep = lib.concatStringsSep ", ";
 
-  # checkFormatting : Runner
+  formatCmd = command: stdin:
+    if stdin then ''
+      (${command}) < $filename > $formatted
+    '' else ''
+      cp -T "$filename" "$formatted"
+      filename="$formatted"
+      (${command})
+    '';
+
   # Results in a derivation that logs diffs w.r.t. some formatter.
-  # Builds succesfully only if there are no diffs.
-  checkFormatting = name: exts: command:
+  # Builds successfully only if there are no diffs.
+  checkFormatting = name: exts: command: stdin:
     pkgs.runCommandLocal "${name}-formatting-check" { } ''
       echo "Running ${name} on ${commaSep exts} files"
 
@@ -44,9 +55,9 @@ let
       (
       while IFS= read -r -d "" filename; do
 
-        formatted="$TEMP/formatter-${name}-res"
+        formatted="$TEMP/formatted.''${filename##.*}"
 
-        (${command}) > $formatted
+        (${formatCmd command stdin})
 
         if ! diff --unified "$filename" "$formatted" > "$formatted.diff" ; then
 
@@ -75,7 +86,7 @@ let
     '';
 
   # shell script that runs the given formatter in place
-  runFormatter = name: exts: command:
+  runFormatter = name: exts: command: stdin:
     pkgs.writeShellScriptBin "run-${name}" ''
       echo "Running ${name} on ${commaSep exts} files:"
 
@@ -84,9 +95,9 @@ let
       while IFS= read -r filename; do
 
         echo -n "  $filename... "
-        formatted="$TEMP/formatter-${name}-res"
+        formatted="$TEMP/formatted.''${filename##*.}"
 
-        (${command}) > $formatted
+        (${formatCmd command stdin})
 
         if ! diff --unified "$filename" "$formatted" > "$formatted.diff" ; then
 
