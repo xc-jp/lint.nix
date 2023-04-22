@@ -55,7 +55,7 @@ let
       (
       while IFS= read -r -d "" filename; do
 
-        formatted="$TEMP/formatted.''${filename##.*}"
+        formatted="$TEMP/formatted.''${filename##*.}"
 
         (${formatCmd command stdin})
 
