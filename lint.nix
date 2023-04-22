@@ -37,7 +37,7 @@ let
     if stdin then ''
       (${command}) < $filename > $formatted
     '' else ''
-      cp -T "$filename" "$formatted"
+      cp -T --no-preserve=mode "$filename" "$formatted"
       filename="$formatted"
       (${command})
     '';
