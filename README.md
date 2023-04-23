@@ -64,8 +64,8 @@ The configuration attribute set should contain the following fields:
 - **`src`**: A nix path pointing to (usually) the root of the repository. Only files in this directory are considered.
 - **`formatters`**: An attribute set configuring individual formatters. Each should define the fields listed below. Defaults to `{ }`.
   - **`ext`**: An extension, or list of extensions, that this formatter should be run on. Extensions should contain a leading period.
-  - **`cmd`**: Formatting shell script. The way this is expected to work depends on the below `stdin` setting. Scripts are
-  - **`stdin`**: Controls whether the formatting script runs in-place or reads from `stdin`. Defaults to `false`.
+  - **`cmd`**: Formatting shell script. The way this is expected to work depends on the below `stdin` setting.
+  - **`stdin`**: Controls whether the formatting script reads from `stdin` (`true`) or runs in-place (`false`). Defaults to `false`.
     - If `true`, the shell script is expected to read its input from `stdin`, and output the formatted file to `stdout`.
     - If `false`, the shell script is expected to format the file pointed to by `$filename` in-place.
 - **`linters`**: An attribute set configuring individual linters. Each should define the fields listed below. Defaults to `{ }`.
