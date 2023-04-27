@@ -127,7 +127,7 @@ let
       (
       while IFS= read -r -d "" filename; do
         filenameClean=''${filename#${src}/}
-        echo -n "Linting $filenameClean..."
+        echo "Linting $filenameClean..."
         if !(${command}); then
           foundErr=1
           errs+=($filenameClean)
