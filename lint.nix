@@ -2,6 +2,7 @@
 , formatters ? { }
 , src
 , pkgs
+, diff-cmd ? "diff --unified"
 }:
 let
   inherit (pkgs) lib;
@@ -59,7 +60,7 @@ let
 
         (${formatCmd command stdin})
 
-        if ! diff --unified "$filename" "$formatted" > "$formatted.diff" ; then
+        if ! ${diff-cmd} "$filename" "$formatted" > "$formatted.diff" ; then
 
           foundDiff=1
           filenameClean=''${filename#${src}/}
@@ -99,7 +100,7 @@ let
 
         (${formatCmd command stdin})
 
-        if ! diff --unified "$filename" "$formatted" > "$formatted.diff" ; then
+        if ! ${diff-cmd} "$filename" "$formatted" > "$formatted.diff" ; then
 
           echo "diff:"
           sed -e 's/^/      /' "$formatted.diff"
