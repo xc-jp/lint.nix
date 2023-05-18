@@ -48,6 +48,7 @@ let
   checkFormatting = name: exts: command: stdin:
     pkgs.runCommandLocal "${name}-formatting-check" { } ''
       echo "Running ${name} on ${commaSep exts} files"
+      set -o pipefail
 
       foundDiff=0
       diffs=()
@@ -90,6 +91,7 @@ let
   runFormatter = name: exts: command: stdin:
     pkgs.writeShellScriptBin "run-${name}" ''
       echo "Running ${name} on ${commaSep exts} files:"
+      set -o pipefail
 
       TEMP=$(mktemp -d)
 
