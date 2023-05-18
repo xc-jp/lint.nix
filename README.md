@@ -71,7 +71,7 @@ The configuration attribute set should contain the following fields:
 - **`linters`**: An attribute set configuring individual linters. Each should define the fields listed below. Defaults to `{ }`.
   - **`ext`**: An extension, or list of extensions, that this linter should be run on. Extensions should contain a leading period.
   - **`cmd`**: A shell script that should fail if there is an issue in `$filename`. Unlike formatters, linters do not (currently) have a `stdin` option. If your linter expects its input from `stdin`, you have to pass it manually using `cat $filename | <linter>`.
-- **`diffCmd`**: Command to produce formatting diffs. Defaults to `diff --unified`, but you might want to configure this to use something like [delta](https://github.com/dandavison/delta).
+- **`diffCmd`**: Command to produce formatting diffs. Defaults to `diff --unified "$filename" "$formatted"`, but you might want to configure this to use something like [delta](https://github.com/dandavison/delta).
 
 The result of calling `lint-nix` is an attribute set containing the following fields:
 
