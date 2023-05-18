@@ -29,13 +29,13 @@ let
       formatters = formatter-runners;
     };
 
-  findPattern = lib.concatMapStringsSep " -or " (ext: "-type f -name '*${ext}'");
+  findPattern = lib.concatMapStringsSep " -or " (ext: "-name '*${ext}'");
   gitPattern = lib.concatMapStringsSep " " (ext: "'*${ext}'");
   commaSep = lib.concatStringsSep ", ";
 
   formatCmd = command: stdin:
     if stdin then ''
-      (${command}) < $filename > $formatted
+      (${command}) < "$filename" > "$formatted"
     '' else ''
       cp -T --no-preserve=mode "$filename" "$formatted"
       filename="$formatted"
@@ -73,7 +73,7 @@ let
           echo
         fi
 
-      done < <(find "${src}" ${findPattern exts} -print0)
+      done < <(find "${src}" -type f \( ${findPattern exts} \) -print0)
 
       if [[ $foundDiff -eq 0 ]]; then
         echo "Success, ${name} found no differences."
@@ -132,7 +132,7 @@ let
           foundErr=1
           errs+=($filenameClean)
         fi
-      done < <(find "${src}" ${findPattern exts} -print0)
+      done < <(find "${src}" -type f \( ${findPattern exts} \) -print0)
 
       if [[ $foundErr -eq 0 ]]; then
         echo "Success, ${name} exited with code 0."
