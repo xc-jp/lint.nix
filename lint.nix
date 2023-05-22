@@ -19,7 +19,7 @@ let
     let
       formats = applyFormat checkFormatting formatters;
       lints = applyLint checkLinting linters;
-      all-formats = pkgs.linkFarmFromDrvs "all-formatters" (builtins.attrValues formats);
+      all-formats = pkgs.linkFarmFromDrvs "all-formats" (builtins.attrValues formats);
       all-lints = pkgs.linkFarmFromDrvs "all-lints" (builtins.attrValues lints);
       formatter-runners = applyFormat runFormatter formatters;
     in
