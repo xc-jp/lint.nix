@@ -82,6 +82,9 @@ let
       else
         echo "Error, ${name} found differences in:"
         printf '    %s\n' "''${diffs[@]}"
+        echo "When running the command:"
+        filename='$filename'
+        echo "    $(basename "${command}")${lib.optionalString stdin " < $filename"}"
         exit 1
       fi
       ) | tee -a "$out"
@@ -142,6 +145,9 @@ let
       else
         echo "Error, ${name} had non-zero exit code for:"
         printf '    %s\n' "''${errs[@]}"
+        echo "When running the command:"
+        filename='$filename'
+        echo "    $(basename "${command}")"
         exit 1
       fi
       ) | tee -a "$out"
