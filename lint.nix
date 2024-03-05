@@ -77,9 +77,7 @@ let
 
       done < <(find "${src}" -type f \( ${findPattern exts} \) -print0)
 
-      if [[ $foundDiff -eq 0 ]]; then
-        echo "Success, ${name} found no differences."
-      else
+      if [[ ! $foundDiff -eq 0 ]]; then
         echo "Error, ${name} found differences in:"
         printf '    %s\n' "''${diffs[@]}"
         echo "When running the command:"
@@ -100,7 +98,6 @@ let
 
       while IFS= read -r filename; do
 
-        echo -n "  $filename... "
         formatted="$TEMP/formatted.''${filename##*.}"
 
         (${formatCmd command stdin})
@@ -116,8 +113,6 @@ let
           else
             echo "Formatted file $(basename $filename) is empty"
           fi
-        else
-          echo "no change"
         fi
 
       done < <(git ls-files ${gitPattern exts})
@@ -133,8 +128,8 @@ let
       (
       while IFS= read -r -d "" filename; do
         filenameClean=''${filename#${src}/}
-        echo "Linting $filenameClean..."
         if !(${command}); then
+          echo "Error in file $filenameClean"
           foundErr=1
           errs+=($filenameClean)
         fi
